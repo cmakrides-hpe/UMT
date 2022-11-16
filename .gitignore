@@ -15,3 +15,5 @@
 *.auxlock
 *.sw*
 *.synctex.gz*
+umt_workspace_*
+build*
