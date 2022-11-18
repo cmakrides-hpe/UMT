@@ -220,6 +220,11 @@ if(ENABLE_TESTS)
   # These are additional link libraries set in the compiler config files (typically system libraries).
   target_link_libraries( test_driver ${TETON_LINK_LIBRARIES} )
 
+  # Generally if Cray Fortran is involved than it should be the linker.
+  if ( CMAKE_Fortran_COMPILER_ID STREQUAL "Cray" )
+    set_target_properties(test_driver PROPERTIES LINKER_LANGUAGE Fortran)
+  endif()
+
   install( TARGETS test_driver
            RUNTIME DESTINATION bin )
 
