@@ -144,7 +144,7 @@
        ASet  => Quad% AngSetPtr(setID)
        angle =  angleList(setID)
 
-!$omp  parallel do collapse(2) default(none)  &
+!$omp  parallel do simd collapse(2) default(none)  &
 !$omp& shared(Geom, ASet, Angle, zSetID) private(c,cface)
 
        do c=Geom% corner1(zSetID),Geom% corner2(zSetID)
@@ -154,7 +154,7 @@
          enddo
        enddo
 
-!$omp end parallel do
+!$omp end parallel do simd
 
      enddo
 
@@ -176,7 +176,7 @@ TOMPC(private(ASet, angle, fac, R_afp,R_afp2,R,R2))
        angle =  angleList(setID)
        fac   =  ASet% angDerivFac(Angle)
 
-!$omp  parallel do default(none)  &
+!$omp  parallel do simd default(none)  &
 !$omp& shared(Geom, ASet, angle, fac, zSetID) private(R_afp,R_afp2,R,R2)
 
        do c=Geom% corner1(zSetID),Geom% corner2(zSetID)
@@ -192,7 +192,7 @@ TOMPC(private(ASet, angle, fac, R_afp,R_afp2,R,R2))
             R2    *(ASet% AezNorm(2,c) - abs(ASet% AezNorm(2,c))) ) 
        enddo
 
-!$omp end parallel do
+!$omp end parallel do simd
 
      enddo
 
@@ -251,20 +251,20 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
        enddo
      enddo
 
-!$omp  parallel do collapse(2) default(none) &
+!$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, Groups, Angle)
      do b=1,Set%nbelem
        do g=1,Groups
          Set% Psi1(g,Set%nCorner+b) = Set% PsiB(g,b,Angle)
        enddo
      enddo
-!$omp end parallel do
+!$omp end parallel do simd
 
      HyperPlaneLoop: do hyperPlane=1,nHyperPlanes
 
        nzones = HypPlanePtr% zonesInPlane(hyperPlane)
 
-!$omp  parallel do collapse(2) default(none) &
+!$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, Geom, ASet, GSet, Angle, nzones, Groups, ndoneZ, tau, fac) &
 !$omp& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
 !$omp& private(aez,afp,R,R_afp,denom)
@@ -370,7 +370,7 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
          enddo GroupLoop
        enddo ZoneLoop
 
-!$omp end parallel do 
+!$omp end parallel do simd
 
        ndoneZ = ndoneZ + nzones
 
@@ -406,7 +406,7 @@ TOMPC(private(Set, ASet, Angle, Groups, quadTauW1, quadTauW2))
 
        if ( ASet% StartingDirection(Angle) ) then
 
-!$omp  parallel do collapse(2) default(none) &
+!$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, Groups)
 
          do c=1,Set% nCorner
@@ -415,14 +415,14 @@ TOMPC(private(Set, ASet, Angle, Groups, quadTauW1, quadTauW2))
            enddo 
          enddo 
 
-!$omp end parallel do
+!$omp end parallel do simd
 
        else
 
          quadTauW1 = ASet% quadTauW1(Angle)
          quadTauW2 = ASet% quadTauW2(Angle)
 
-!$omp  parallel do collapse(2) default(none) &
+!$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, Groups, quadTauW1, quadTauW2)
 
          do c=1,Set% nCorner
@@ -432,7 +432,7 @@ TOMPC(private(Set, ASet, Angle, Groups, quadTauW1, quadTauW2))
            enddo 
          enddo
 
-!$omp end parallel do
+!$omp end parallel do simd
 
        endif
 
@@ -453,7 +453,7 @@ TOMPC(private(Set, ASet, BdyExitPtr, Angle, Groups, b, c))
        Angle      =  Set% AngleOrder(sendIndex)
        BdyExitPtr => ASet% BdyExitPtr(Angle)
 
-!$omp  parallel do collapse(2) default(none) &
+!$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, BdyExitPtr, Angle, Groups) private(b,c)
 
        do i=1,BdyExitPtr% nxBdy
@@ -465,11 +465,11 @@ TOMPC(private(Set, ASet, BdyExitPtr, Angle, Groups, b, c))
          enddo
        enddo
 
-!$omp end parallel do
+!$omp end parallel do simd
 
        if ( ASet% FinishingDirection(Angle+1) ) then
 
-!$omp  parallel do collapse(2) default(none) &
+!$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, BdyExitPtr, Angle, Groups) private(b,c)
 
          do i=1,BdyExitPtr% nxBdy
@@ -481,7 +481,7 @@ TOMPC(private(Set, ASet, BdyExitPtr, Angle, Groups, b, c))
            enddo
          enddo
 
-!$omp end parallel do
+!$omp end parallel do simd
 
        endif 
 
@@ -506,7 +506,7 @@ TOMPC(private(Set, ASet, Angle, Groups))
        Groups =  Set% Groups
        Angle  =  Set% AngleOrder(sendIndex)
 
-!$omp  parallel do collapse(2) default(none) &
+!$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, ASet, Angle, Groups)
 
        CornerLoop4: do c=1,Set% nCorner
@@ -521,7 +521,7 @@ TOMPC(private(Set, ASet, Angle, Groups))
          enddo GroupLoop4
        enddo CornerLoop4
 
-!$omp end parallel do
+!$omp end parallel do simd
 
      enddo SetLoop4
 
