@@ -24,7 +24,7 @@
    use kind_mod
    use constant_mod
    use Size_mod
-   use Geometry_mod
+   use Geometry_mod 
    use QuadratureList_mod
    use SetData_mod
    use AngleSet_mod
@@ -199,7 +199,7 @@ TOMPC(private(ASet, angle, fac, R_afp,R_afp2,R,R2))
    enddo ZoneSetLoop2
 
 TOMP(end target teams distribute)
-
+TOMP(end target data)
 ! TODO:
 ! IBM XLF segfaults if 'mCycle', 'b', and 'g' are not scoped to private below.  This should not
 ! be necessary, as these are loop control variables which the runtime should automatically scope to private.
@@ -213,12 +213,19 @@ TOMP(end target teams distribute)
 ! the loop.`
 ! 
 ! Look into reporting this bug to IBM, using UMT as a reproducer.
+#if 0
 TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none) &)
 TOMPC(shared(nSets, Quad, Geom, sendIndex, tau)&)
 TOMPC(private(c, cfp, Set, ASet, GSet, HypPlanePtr, Angle) &)
 TOMPC(private(Groups, nHyperPlanes, ndoneZ, mCycle, b, g, offset, hyperPlane, nzones, fac)&)
 TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez,afp,R,R_afp,denom))
+#else
+!$acc data copyin(tau, sendIndex, angleList)
+!$acc parallel loop gang &
+!$acc& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
+!$acc& private(aez,afp,R,R_afp,denom)
 
+#endif
    SetLoop: do setID=1,nSets
 
      Set          => Quad% SetDataPtr(setID)
@@ -251,26 +258,23 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
        enddo
      enddo
 
-!$omp  parallel do simd collapse(2) default(none) &
-!$omp& shared(Set, Groups, Angle)
-     do b=1,Set%nbelem
+!$acc loop vector collapse(2) 
+    do b=1,Set%nbelem
        do g=1,Groups
          Set% Psi1(g,Set%nCorner+b) = Set% PsiB(g,b,Angle)
        enddo
      enddo
-!$omp end parallel do simd
+
 
      HyperPlaneLoop: do hyperPlane=1,nHyperPlanes
 
        nzones = HypPlanePtr% zonesInPlane(hyperPlane)
 
-!$omp  parallel do simd collapse(2) default(none) &
-!$omp& shared(Set, Geom, ASet, GSet, Angle, nzones, Groups, ndoneZ, tau, fac) &
-!$omp& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
-!$omp& private(aez,afp,R,R_afp,denom)
-
+!$acc  loop vector collapse(2) &
+!$acc& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
+!$ac& private(aez,afp,R,R_afp,denom)
        ZoneLoop: do ii=1,nzones
-         GroupLoop: do g=1,Groups
+       GroupLoop: do g=1,Groups
 
 !  Loop through all of the corners using the NEXT list
 
@@ -370,7 +374,6 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
          enddo GroupLoop
        enddo ZoneLoop
 
-!$omp end parallel do simd
 
        ndoneZ = ndoneZ + nzones
 
@@ -387,8 +390,9 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
      enddo
    enddo SetLoop
 
-TOMP(end target teams distribute)
-TOMP(end target data)
+!$acc end parallel loop
+
+!$acc end data
 
 TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none) &)
 TOMPC(shared(nSets, Quad, sendIndex)&)
