@@ -128,13 +128,22 @@
    TETON_CHECK_BOUNDS1(Geom%corner1, nZoneSets)
    TETON_CHECK_BOUNDS1(Geom%corner2, nZoneSets)
 
-   TOMP(target data map(to: tau, sendIndex, angleList))
+#ifdef CRAY_ACC_WAR
+   !$acc data copyin(tau, sendIndex, angleList)
+#else
+  TOMP(target data map(to: tau, sendIndex, angleList))
+#endif
 
-
+#ifdef CRAY_ACC_WAR
+  !$acc parallel loop gang &
+  !$acc& num_gangs(nZoneSets) &
+  !$acc& vector_length(omp_device_team_thread_limit) &
+  !$acc& private(ASet, Angle)
+#else
    TOMP(target teams distribute num_teams(nZoneSets) thread_limit(omp_device_team_thread_limit) default(none) &)
    TOMPC(shared(nZoneSets, nAngleSets,Geom, angleList, Quad)&)
    TOMPC(private(ASet, Angle))
-
+#endif
    ZoneSetLoop: do zSetID=1,nZoneSets
 
 !    Loop over angle sets
@@ -143,10 +152,13 @@
 
        ASet  => Quad% AngSetPtr(setID)
        angle =  angleList(setID)
-
+#ifdef CRAY_ACC_WAR
+!$acc loop vector collapse(2) &
+!$acc& private(c,cface)
+#else
 !$omp  parallel do simd collapse(2) default(none)  &
 !$omp& shared(Geom, ASet, Angle, zSetID) private(c,cface)
-
+#endif
        do c=Geom% corner1(zSetID),Geom% corner2(zSetID)
          do cface=1,2
            ASet% AfpNorm(cface,c) = DOT_PRODUCT( ASet% omega(:,angle),Geom% A_fp(:,cface,c) )
@@ -154,19 +166,28 @@
          enddo
        enddo
 
+#ifndef CRAY_ACC_WAR
 !$omp end parallel do simd
-
-     enddo
+#endif
+      enddo
 
    enddo ZoneSetLoop
-
+#ifdef CRAY_ACC_WAR
+!$acc end parallel loop
+#else
 TOMP(end target teams distribute)
+#endif
 
+#ifdef CRAY_ACC_WAR
+!$acc parallel loop gang num_gangs(nZoneSets) vector_length(omp_device_team_thread_limit) &
+!$acc& private(ASet, angle, fac, R_afp,R_afp2,R,R2)
+#else 
 TOMP(target teams distribute num_teams(nZoneSets) thread_limit(omp_device_team_thread_limit) default(none)&)
 TOMPC(shared(nZoneSets, nAngleSets, Geom, angleList, Quad)&)
 TOMPC(private(ASet, angle, fac, R_afp,R_afp2,R,R2))
+#endif
 
-   ZoneSetLoop2: do zSetID=1,nZoneSets
+    ZoneSetLoop2: do zSetID=1,nZoneSets
 
 !    Loop over angle sets
 
@@ -175,10 +196,13 @@ TOMPC(private(ASet, angle, fac, R_afp,R_afp2,R,R2))
        ASet  => Quad% AngSetPtr(setID)
        angle =  angleList(setID)
        fac   =  ASet% angDerivFac(Angle)
-
+#ifdef CRAY_ACC_WAR
+!$acc loop vector &
+!$acc& private(R_afp,R_afp2,R,R2)
+#else
 !$omp  parallel do simd default(none)  &
 !$omp& shared(Geom, ASet, angle, fac, zSetID) private(R_afp,R_afp2,R,R2)
-
+#endif
        do c=Geom% corner1(zSetID),Geom% corner2(zSetID)
          R_afp  = Geom% RadiusFP(1,c)
          R_afp2 = Geom% RadiusFP(2,c)
@@ -191,15 +215,18 @@ TOMPC(private(ASet, angle, fac, R_afp,R_afp2,R,R2))
             R     *(ASet% AezNorm(1,c) - abs(ASet% AezNorm(1,c))) +    &
             R2    *(ASet% AezNorm(2,c) - abs(ASet% AezNorm(2,c))) ) 
        enddo
-
+#ifndef CRAY_ACC_WAR
 !$omp end parallel do simd
-
+#endif
      enddo
 
    enddo ZoneSetLoop2
-
+#ifdef CRAY_ACC_WAR
+!$acc end parallel loop
+#else
 TOMP(end target teams distribute)
-TOMP(end target data)
+#endif
+
 ! TODO:
 ! IBM XLF segfaults if 'mCycle', 'b', and 'g' are not scoped to private below.  This should not
 ! be necessary, as these are loop control variables which the runtime should automatically scope to private.
@@ -213,19 +240,17 @@ TOMP(end target data)
 ! the loop.`
 ! 
 ! Look into reporting this bug to IBM, using UMT as a reproducer.
-#if 0
+#ifdef CRAY_ACC_WAR
+!$acc parallel loop gang num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
+!$acc private(c, cfp, Set, ASet, GSet, HypPlanePtr, Angle) &
+!$acc& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
+!$acc& private(aez,afp,R,R_afp,denom)
+#else
 TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none) &)
 TOMPC(shared(nSets, Quad, Geom, sendIndex, tau)&)
 TOMPC(private(c, cfp, Set, ASet, GSet, HypPlanePtr, Angle) &)
 TOMPC(private(Groups, nHyperPlanes, ndoneZ, mCycle, b, g, offset, hyperPlane, nzones, fac)&)
 TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez,afp,R,R_afp,denom))
-#else
-!$acc data copyin(tau, sendIndex, angleList)
-!$acc parallel loop gang num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
-!$acc private(c, cfp, Set, ASet, GSet, HypPlanePtr, Angle) &
-!$acc& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
-!$acc& private(aez,afp,R,R_afp,denom)
-
 #endif
    SetLoop: do setID=1,nSets
 
@@ -259,22 +284,36 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
        enddo
      enddo
 
-!$acc loop vector collapse(2) 
-    do b=1,Set%nbelem
+#ifdef CRAY_ACC_WAR
+  !$acc loop vector collapse(2)
+#else
+  !$omp  parallel do collapse(2) default(none) &
+  !$omp& shared(Set, Groups, Angle)
+#endif
+  do b=1,Set%nbelem
        do g=1,Groups
          Set% Psi1(g,Set%nCorner+b) = Set% PsiB(g,b,Angle)
        enddo
      enddo
-
+#ifndef CRAY_ACC_WAR
+  !$omp end parallel do
+#endif
 
      HyperPlaneLoop: do hyperPlane=1,nHyperPlanes
 
        nzones = HypPlanePtr% zonesInPlane(hyperPlane)
 
+#ifdef CRAY_ACC_WAR
 !$acc  loop vector collapse(2) &
 !$acc& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
 !$ac& private(aez,afp,R,R_afp,denom)
-       ZoneLoop: do ii=1,nzones
+#else
+!$omp  parallel do collapse(2) default(none) &
+!$omp& shared(Set, Geom, ASet, GSet, Angle, nzones, Groups, ndoneZ, tau, fac) &
+!$omp& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
+!$omp& private(aez,afp,R,R_afp,denom)
+#endif
+    ZoneLoop: do ii=1,nzones
        GroupLoop: do g=1,Groups
 
 !  Loop through all of the corners using the NEXT list
@@ -374,8 +413,9 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
 
          enddo GroupLoop
        enddo ZoneLoop
-
-
+#ifndef CRAY_ACC_WAR
+!$omp end parallel do 
+#endif
        ndoneZ = ndoneZ + nzones
 
      enddo HyperPlaneLoop
@@ -390,10 +430,14 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
        enddo
      enddo
    enddo SetLoop
-
+#ifdef CRAY_ACC_WAR
 !$acc end parallel loop
 
 !$acc end data
+#else
+TOMP(end target teams distribute)
+TOMP(end target data)
+#endif
 
 TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none) &)
 TOMPC(shared(nSets, Quad, sendIndex)&)

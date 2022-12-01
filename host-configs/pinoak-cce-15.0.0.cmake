@@ -10,7 +10,7 @@ set(MPI_CXX_COMPILER  "CC" CACHE PATH "")
 set(MPI_Fortran_COMPILER "ftn" CACHE PATH "")
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wall" CACHE PATH "")
-set(CMAKE_Fortran_FLAGS "-ef" CACHE PATH "")
+set(CMAKE_Fortran_FLAGS "-ef -DCRAY_ACC_WAR" CACHE PATH "")
 
 set(CMAKE_Fortran_FLAGS_RELEASE "-O3" CACHE PATH "")
 set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "-O3 -G2" CACHE PATH "")
@@ -20,8 +20,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3" CACHE PATH "")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g" CACHE PATH "")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g" CACHE PATH "")
 
-set(TETON_OpenMP_Fortran_FLAGS_RELEASE "-fopenmp" CACHE STRING "")
-set(TETON_OpenMP_Fortran_FLAGS_DEBUG "-fopenmp" CACHE STRING "")
+set(TETON_OpenMP_Fortran_FLAGS_RELEASE "-fopenmp -hacc" CACHE STRING "")
+set(TETON_OpenMP_Fortran_FLAGS_DEBUG "-fopenmp -hacc" CACHE STRING "")
 set(TETON_OpenMP_CXX_FLAGS_RELEASE "-fopenmp" CACHE STRING "")
 set(TETON_OpenMP_CXX_FLAGS_DEBUG "-fopenmp" CACHE STRING "")
 
