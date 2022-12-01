@@ -221,7 +221,8 @@ TOMPC(private(Groups, nHyperPlanes, ndoneZ, mCycle, b, g, offset, hyperPlane, nz
 TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez,afp,R,R_afp,denom))
 #else
 !$acc data copyin(tau, sendIndex, angleList)
-!$acc parallel loop gang &
+!$acc parallel loop gang num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
+!$acc private(c, cfp, Set, ASet, GSet, HypPlanePtr, Angle) &
 !$acc& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
 !$acc& private(aez,afp,R,R_afp,denom)
 
