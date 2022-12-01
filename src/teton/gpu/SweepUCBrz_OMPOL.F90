@@ -242,8 +242,9 @@ TOMP(end target teams distribute)
 ! Look into reporting this bug to IBM, using UMT as a reproducer.
 #ifdef CRAY_ACC_WAR
 !$acc parallel loop gang num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
-!$acc private(c, cfp, Set, ASet, GSet, HypPlanePtr, Angle) &
+!$acc& private(c, cfp, Set, ASet, GSet, HypPlanePtr, Angle) &
 !$acc& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
+!$acc& private(Groups, nHyperPlanes, ndoneZ, mCycle, b, g, offset, hyperPlane, nzones, fac) &
 !$acc& private(aez,afp,R,R_afp,denom)
 #else
 TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none) &)
