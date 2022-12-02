@@ -4,7 +4,7 @@
 # $TPL_ROOT/ library_name / version
 # Set TPL_ROOT to where your libraries are installed.
 
-set(TPL_ROOT "/cray/css/perfeng/sabbott/UMT_TPL/cce-15.0.0" CACHE PATH "")
+set(TPL_ROOT "/cray/css/perfeng/sabbott/UMT_TPL/cce-15.0.0-conduit-dev" CACHE PATH "")
 set(MPI_C_COMPILER  "cc" CACHE PATH "")
 set(MPI_CXX_COMPILER  "CC" CACHE PATH "")
 set(MPI_Fortran_COMPILER "ftn" CACHE PATH "")
