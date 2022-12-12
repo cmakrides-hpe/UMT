@@ -51,24 +51,31 @@
    ngr       = Size% ngr
 
    if ( Size% useGPU ) then
-
+#ifdef CRAY_ACC_WAR
+     !$acc  data copyin(nSets, ngr)
+     !$acc  parallel loop gang    num_gangs(nZoneSets) vector_length(omp_device_team_thread_limit) &
+     !$acc& private(Set, ASet, g0, Groups, NumAngles, quadwt, volRatio)
+#else
      TOMP(target data map(to: nSets, ngr))
-
      TOMP(target teams distribute num_teams(nZoneSets) thread_limit(omp_device_team_thread_limit) default(none) &)
      TOMPC(shared(nZoneSets, Geom, Rad, ngr, Quad, nSets )&)
      TOMPC(private(Set, ASet, g0, Groups, NumAngles, quadwt, volRatio))
-
+#endif
      ZoneSetLoop1: do zSetID=1,nZoneSets
-
+#ifdef CRAY_ACC_WAR
+       !$acc  loop vector collapse(2)
+#else
        !$omp  parallel do collapse(2) default(none)  &
        !$omp& shared(Geom, Rad, ngr, zSetID)
+#endif
        do c=Geom% corner1(zSetID),Geom% corner2(zSetID)
          do g=1,ngr
            Rad% PhiTotal(g,c) = zero 
          enddo
        enddo
+#ifndef CRAY_ACC_WAR
        !$omp end parallel do
-
+#endif
 !      Sum over phase-space sets
 
        do setID=1,nSets
@@ -83,9 +90,14 @@
          AngleLoop: do Angle=1,NumAngles
            quadwt =  ASet% weight(Angle)
 
+#ifdef CRAY_ACC_WAR
+           !$acc  loop vector collapse(2) &
+           !$acc& private(volRatio)
+#else
            !$omp  parallel do collapse(2) default(none)  &
            !$omp& shared(Geom, Rad, Set, g0, Groups, Angle, quadwt, zSetID) &
            !$omp& private(volRatio)
+#endif
            do c=Geom% corner1(zSetID),Geom% corner2(zSetID)
              do g=1,Groups
                volRatio              = Geom% VolumeOld(c)/Geom% Volume(c)
@@ -95,17 +107,22 @@
                                        quadwt*Set% Psi(g,c,Angle)
              enddo
            enddo
-
+#ifndef CRAY_ACC_WAR
            !$omp end parallel do
-
+#endif
          enddo AngleLoop
 
        enddo
 
      enddo ZoneSetLoop1
 
+#ifdef CRAY_ACC_WAR
+     !$acc end parallel loop
+     !$acc end data
+#else
      TOMP(end target teams distribute)
      TOMP(end target data)
+#endif
 
    else
 

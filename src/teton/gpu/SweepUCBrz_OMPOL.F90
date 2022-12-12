@@ -129,16 +129,14 @@
    TETON_CHECK_BOUNDS1(Geom%corner2, nZoneSets)
 
 #ifdef CRAY_ACC_WAR
-   !$acc data copyin(tau, sendIndex, angleList)
+  !$acc data copyin(tau, sendIndex, angleList)
 #else
   TOMP(target data map(to: tau, sendIndex, angleList))
 #endif
 
 #ifdef CRAY_ACC_WAR
-  !$acc parallel loop gang &
-  !$acc& num_gangs(nZoneSets) &
-  !$acc& vector_length(omp_device_team_thread_limit) &
-  !$acc& private(ASet, Angle)
+   !$acc parallel loop gang     num_gangs(nZoneSets) vector_length(omp_device_team_thread_limit) &
+   !$acc& private(ASet, Angle)
 #else
    TOMP(target teams distribute num_teams(nZoneSets) thread_limit(omp_device_team_thread_limit) default(none) &)
    TOMPC(shared(nZoneSets, nAngleSets,Geom, angleList, Quad)&)
@@ -153,7 +151,7 @@
        ASet  => Quad% AngSetPtr(setID)
        angle =  angleList(setID)
 #ifdef CRAY_ACC_WAR
-!$acc loop vector collapse(2) &
+!$acc  loop vector collapse(2) &
 !$acc& private(c,cface)
 #else
 !$omp  parallel do simd collapse(2) default(none)  &
@@ -165,7 +163,6 @@
            ASet% AezNorm(cface,c) = DOT_PRODUCT( ASet% omega(:,angle),Geom% A_ez(:,cface,c) )
          enddo
        enddo
-
 #ifndef CRAY_ACC_WAR
 !$omp end parallel do simd
 #endif
@@ -179,7 +176,7 @@ TOMP(end target teams distribute)
 #endif
 
 #ifdef CRAY_ACC_WAR
-!$acc parallel loop gang num_gangs(nZoneSets) vector_length(omp_device_team_thread_limit) &
+!$acc  parallel loop gang    num_gangs(nZoneSets) vector_length(omp_device_team_thread_limit) &
 !$acc& private(ASet, angle, fac, R_afp,R_afp2,R,R2)
 #else 
 TOMP(target teams distribute num_teams(nZoneSets) thread_limit(omp_device_team_thread_limit) default(none)&)
@@ -197,7 +194,7 @@ TOMPC(private(ASet, angle, fac, R_afp,R_afp2,R,R2))
        angle =  angleList(setID)
        fac   =  ASet% angDerivFac(Angle)
 #ifdef CRAY_ACC_WAR
-!$acc loop vector &
+!$acc  loop vector &
 !$acc& private(R_afp,R_afp2,R,R2)
 #else
 !$omp  parallel do simd default(none)  &
@@ -241,11 +238,10 @@ TOMP(end target teams distribute)
 ! 
 ! Look into reporting this bug to IBM, using UMT as a reproducer.
 #ifdef CRAY_ACC_WAR
-!$acc parallel loop gang num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
+!$acc  parallel loop gang    num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
 !$acc& private(c, cfp, Set, ASet, GSet, HypPlanePtr, Angle) &
-!$acc& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
 !$acc& private(Groups, nHyperPlanes, ndoneZ, mCycle, b, g, offset, hyperPlane, nzones, fac) &
-!$acc& private(aez,afp,R,R_afp,denom)
+!$acc& private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez,afp,R,R_afp,denom)
 #else
 TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none) &)
 TOMPC(shared(nSets, Quad, Geom, sendIndex, tau)&)
@@ -307,7 +303,7 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
 #ifdef CRAY_ACC_WAR
 !$acc  loop vector collapse(2) &
 !$acc& private(c0,cez,cfp,zone,nCorner,sigA,sigA2,source,area,sig,sez,gnum,gden) &
-!$ac& private(aez,afp,R,R_afp,denom)
+!$acc& private(aez,afp,R,R_afp,denom)
 #else
 !$omp  parallel do collapse(2) default(none) &
 !$omp& shared(Set, Geom, ASet, GSet, Angle, nzones, Groups, ndoneZ, tau, fac) &
@@ -433,16 +429,20 @@ TOMPC(private(c0,cez,zone,nCorner, sigA,sigA2,source,area,sig,sez,gnum,gden, aez
    enddo SetLoop
 #ifdef CRAY_ACC_WAR
 !$acc end parallel loop
-
 !$acc end data
 #else
 TOMP(end target teams distribute)
 TOMP(end target data)
 #endif
 
+#ifdef CRAY_ACC_WAR
+!$acc  parallel loop gang    num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
+!$acc& private(Set, ASet, Angle, Groups, quadTauW1, quadTauW2)
+#else
 TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none) &)
 TOMPC(shared(nSets, Quad, sendIndex)&)
 TOMPC(private(Set, ASet, Angle, Groups, quadTauW1, quadTauW2))
+#endif
 
      SetLoop2: do setID=1,nSets
 
@@ -456,8 +456,12 @@ TOMPC(private(Set, ASet, Angle, Groups, quadTauW1, quadTauW2))
 
        if ( ASet% StartingDirection(Angle) ) then
 
+#ifdef CRAY_ACC_WAR
+!$acc  loop vector collapse(2)
+#else
 !$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, Groups)
+#endif
 
          do c=1,Set% nCorner
            do g=1,Groups
@@ -465,15 +469,21 @@ TOMPC(private(Set, ASet, Angle, Groups, quadTauW1, quadTauW2))
            enddo 
          enddo 
 
+#ifndef CRAY_ACC_WAR
 !$omp end parallel do simd
+#endif
 
        else
 
          quadTauW1 = ASet% quadTauW1(Angle)
          quadTauW2 = ASet% quadTauW2(Angle)
 
+#ifdef CRAY_ACC_WAR
+!$acc  loop vector collapse(2)
+#else
 !$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, Groups, quadTauW1, quadTauW2)
+#endif
 
          do c=1,Set% nCorner
            do g=1,Groups
@@ -482,18 +492,28 @@ TOMPC(private(Set, ASet, Angle, Groups, quadTauW1, quadTauW2))
            enddo 
          enddo
 
+#ifndef CRAY_ACC_WAR
 !$omp end parallel do simd
+#endif
 
        endif
 
      enddo SetLoop2
 
+#ifdef CRAY_ACC_WAR
+!$acc end parallel loop
+#else
 TOMP(end target teams distribute)
+#endif
+
+#ifdef CRAY_ACC_WAR
+!$acc  parallel loop gang    num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
+!$acc& private(Set, ASet, BdyExitPtr, Angle, Groups, b, c)
+#else
 TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none)&)
 TOMPC(shared(nSets, Quad, sendIndex)&)
 TOMPC(private(Set, ASet, BdyExitPtr, Angle, Groups, b, c))
-
-!!TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) private(setID, Set, ASet, BdyExitPtr, Angle, Groups))
+#endif
 
      SetLoop3: do setID=1,nSets
 
@@ -503,8 +523,13 @@ TOMPC(private(Set, ASet, BdyExitPtr, Angle, Groups, b, c))
        Angle      =  Set% AngleOrder(sendIndex)
        BdyExitPtr => ASet% BdyExitPtr(Angle)
 
+#ifdef CRAY_ACC_WAR
+!$acc  loop vector collapse(2) &
+!$acc& private(b,c)
+#else
 !$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, BdyExitPtr, Angle, Groups) private(b,c)
+#endif
 
        do i=1,BdyExitPtr% nxBdy
          do g=1,Groups
@@ -515,12 +540,19 @@ TOMPC(private(Set, ASet, BdyExitPtr, Angle, Groups, b, c))
          enddo
        enddo
 
+#ifndef CRAY_ACC_WAR
 !$omp end parallel do simd
+#endif
 
        if ( ASet% FinishingDirection(Angle+1) ) then
 
+#ifdef CRAY_ACC_WAR
+!$acc  loop vector collapse(2) &
+!$acc& private(b,c)
+#else
 !$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, BdyExitPtr, Angle, Groups) private(b,c)
+#endif
 
          do i=1,BdyExitPtr% nxBdy
            do g=1,Groups
@@ -531,22 +563,32 @@ TOMPC(private(Set, ASet, BdyExitPtr, Angle, Groups, b, c))
            enddo
          enddo
 
+#ifndef CRAY_ACC_WAR
 !$omp end parallel do simd
+#endif
 
        endif 
 
      enddo SetLoop3
 
+#ifdef CRAY_ACC_WAR
+!$acc end parallel loop
+#else
 TOMP(end target teams distribute)
-
+#endif
 
 !  We only store Psi if this is the last transport sweep in the time step
 
    if ( savePsi ) then
 
+#ifdef CRAY_ACC_WAR
+!$acc  parallel loop gang    num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
+!$acc& private(Set, ASet, Angle, Groups)
+#else
 TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none) &)
 TOMPC(shared(nSets, sendIndex, Quad)&)
 TOMPC(private(Set, ASet, Angle, Groups))
+#endif
 
      SetLoop4: do setID=1,nSets
 
@@ -556,8 +598,12 @@ TOMPC(private(Set, ASet, Angle, Groups))
        Groups =  Set% Groups
        Angle  =  Set% AngleOrder(sendIndex)
 
+#ifdef CRAY_ACC_WAR
+!$acc  loop vector collapse(2)
+#else
 !$omp  parallel do simd collapse(2) default(none) &
 !$omp& shared(Set, ASet, Angle, Groups)
+#endif
 
        CornerLoop4: do c=1,Set% nCorner
          GroupLoop4: do g=1,Groups
@@ -571,11 +617,17 @@ TOMPC(private(Set, ASet, Angle, Groups))
          enddo GroupLoop4
        enddo CornerLoop4
 
+#ifndef CRAY_ACC_WAR
 !$omp end parallel do simd
+#endif
 
      enddo SetLoop4
 
+#ifdef CRAY_ACC_WAR
+!$acc end parallel loop
+#else
 TOMP(end target teams distribute)
+#endif
 
    endif
 

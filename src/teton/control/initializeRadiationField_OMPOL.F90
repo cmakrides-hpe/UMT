@@ -62,10 +62,14 @@
 
 !  Update Boundary data
 
+#ifdef CRAY_ACC_WAR
+     !$acc  parallel loop gang    num_gangs(nSets) vector_length(omp_device_team_thread_limit) &
+     !$acc& private(Set, ASet, BdyExitPtr, offSet, Groups, NumAngles, c, b)
+#else
      TOMP(target teams distribute num_teams(nSets) thread_limit(omp_device_team_thread_limit) default(none) &)
      TOMPC(shared(nSets, Quad)&)
      TOMPC(private(Set, ASet, BdyExitPtr, offSet, Groups, NumAngles, c, b))
-
+#endif
      do setID=1,nSets
 
        Set        => Quad% SetDataPtr(setID)
@@ -76,9 +80,14 @@
        do angle=1,NumAngles
          BdyExitPtr => ASet% BdyExitPtr(angle)
 
+#ifdef CRAY_ACC_WAR
+         !$acc  loop vector collapse(2) &
+         !$acc& private(b,c)
+#else
          !$omp  parallel do collapse(2) default(none) &
          !$omp& shared(Set, BdyExitPtr, angle, Groups) &
          !$omp& private(b,c)
+#endif
          do i=1,BdyExitPtr% nxBdy
            do g=1,Groups
              b = BdyExitPtr% bdyList(1,i)
@@ -87,8 +96,9 @@
              Set% PsiB(g,b,angle) = Set% Psi(g,c,angle)
            enddo
          enddo
-        !$omp end parallel do
-
+#ifndef CRAY_ACC_WAR
+         !$omp end parallel do
+#endif
        enddo
 
 !    Update Psi in the cycle list
@@ -96,20 +106,32 @@
        do angle=1,NumAngles
          offSet = ASet% cycleOffSet(angle)
 
+#ifdef CRAY_ACC_WAR
+         !$acc  loop vector collapse(2) &
+         !$acc& private(c)
+#else
          !$omp  parallel do collapse(2) default(none) &
          !$omp& shared(Set, ASet, angle, offSet, Groups) &
          !$omp& private(c)
+#endif
          do mCycle=1,ASet% numCycles(angle)
            do g=1,Groups
              c                              = ASet% cycleList(offSet+mCycle)
              Set% cyclePsi(g,offSet+mCycle) = Set% Psi(g,c,angle)
            enddo
          enddo
+#ifndef CRAY_ACC_WAR
          !$omp end parallel do
+#endif
        enddo
+
      enddo
 
+#ifdef CRAY_ACC_WAR
+     !$acc end parallel loop
+#else
      TOMP(end target teams distribute)
+#endif
 
    else
 
